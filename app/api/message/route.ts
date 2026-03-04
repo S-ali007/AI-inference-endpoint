@@ -27,11 +27,30 @@ export async function POST(req: Request) {
         conversationId,
       },
     })
+const previousMessages = await prisma.message.findMany({
+  where: {
+    conversationId,
+  },
+  orderBy: {
+    createdAt: "asc",
+  },
+})
 
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-3-flash-preview",
-      contents: content,
-    })
+const formattedHistory = previousMessages.map((msg) => ({
+  role: msg.role === "assistant" ? "model" : "user",
+  parts: [{ text: msg.content }],
+}))
+
+ const stream = await ai.models.generateContentStream({
+  model: "gemini-3-flash-preview",
+  contents: [
+    ...formattedHistory,
+    {
+      role: "user",
+      parts: [{ text: content }],
+    },
+  ],
+})
 
     const encoder = new TextEncoder()
 
