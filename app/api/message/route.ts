@@ -32,24 +32,49 @@ const previousMessages = await prisma.message.findMany({
     conversationId,
   },
   orderBy: {
-    createdAt: "asc",
+    createdAt: "desc",
   },
+  take: 12
+  
 })
 
-const formattedHistory = previousMessages.map((msg) => ({
-  role: msg.role === "assistant" ? "model" : "user",
-  parts: [{ text: msg.content }],
-}))
-
- const stream = await ai.models.generateContentStream({
-  model: "gemini-3-flash-preview",
-  contents: [
-    ...formattedHistory,
+const formattedHistory = previousMessages
+  .reverse()
+  .map((msg) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }],
+  }))
+const systemPrompt = {
+  role: "user",
+  parts: [
     {
+      text: `
+You are a helpful AI assistant for developers.
+
+Guidelines:
+- Answer the user's question directly.
+- Use clear explanations.
+- Be concise unless the user asks for details.
+- Maintain conversation context.
+- Do not assume questions beyond what the user asks.
+`,
+    },
+  ],
+}
+ const stream = await ai.models.generateContentStream({
+  model: "gemini-2.5-flash",
+  contents: [
+    systemPrompt,
+    ...formattedHistory,
+    { 
       role: "user",
       parts: [{ text: content }],
     },
   ],
+  config: {
+    temperature: 0.7,
+    maxOutputTokens: 1024,
+  },
 })
 
     const encoder = new TextEncoder()
